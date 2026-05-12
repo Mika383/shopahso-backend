@@ -1,11 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsInt,
   IsNumber,
   IsObject,
   IsOptional,
   IsString,
+  IsUrl,
   IsUUID,
   Min,
 } from 'class-validator';
@@ -76,6 +78,18 @@ export class CreateVariantDto {
   @IsOptional()
   @IsObject()
   specSnapshot?: Record<string, unknown>;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUrl(
+    {
+      require_tld: false,
+      require_protocol: true,
+    },
+    { each: true },
+  )
+  imageUrls?: string[];
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()

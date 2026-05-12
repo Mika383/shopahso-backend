@@ -5,6 +5,16 @@ import { ProductService } from './product.service';
 export class ProductController {
   constructor(private readonly productService: ProductService) {}
 
+  @Get('featured')
+  findFeatured() {
+    return this.productService.findFeatured();
+  }
+
+  @Get('newest')
+  findNewest() {
+    return this.productService.findNewest();
+  }
+
   @Get(':slug')
   async findBySlug(@Param('slug') slug: string) {
     const product = await this.productService.findBySlug(slug);

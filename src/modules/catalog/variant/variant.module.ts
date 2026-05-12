@@ -5,9 +5,10 @@ import { BackofficeVariantController } from './backoffice-variant.controller';
 import { VariantService } from './variant.service';
 import { CategoryModule } from '../category/category.module';
 import { AuthModule } from '../../auth/auth.module';
+import { MediaModule } from '../../media/media.module';
 
 @Module({
-  imports: [CategoryModule, AuthModule],
+  imports: [CategoryModule, AuthModule, MediaModule],
   controllers: [VariantController, BackofficeVariantController],
   providers: [VariantService, PrismaService],
   exports: [VariantService],

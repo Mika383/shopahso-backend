@@ -2,10 +2,106 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateProductDto } from './create-product.dto';
 import { UpdateProductDto } from './update-product.dto';
+import { CloudinaryService } from '../../media/cloudinary.service';
+
+type UploadedImageFile = {
+  buffer: Buffer;
+  mimetype: string;
+};
 
 @Injectable()
 export class ProductService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
+
+  findFeatured() {
+    return this.prisma.product.findMany({
+      where: { active: true },
+      orderBy: [{ variants: { _count: 'desc' } }, { createdAt: 'desc' }],
+      take: 10,
+      include: {
+        category: true,
+        brand: true,
+        variants: {
+          where: { active: true },
+          orderBy: [
+            { score: 'desc' },
+            { orderCount: 'desc' },
+            { viewCount: 'desc' },
+            { name: 'asc' },
+          ],
+          take: 1,
+        },
+      },
+    }).then((products) => {
+      const normalized = products.map((product) => ({
+        ...product,
+        featuredScore: product.variants[0]?.score ?? 0,
+        effectiveImageUrls:
+          product.imageUrls.length > 0
+            ? product.imageUrls
+            : (product.variants[0]?.imageUrls ?? []),
+      }));
+
+      if (normalized.length > 0) {
+        return normalized;
+      }
+
+      return this.findNewest();
+    });
+  }
+
+  findNewest() {
+    return this.prisma.product.findMany({
+      where: { active: true },
+      orderBy: [{ createdAt: 'desc' }],
+      take: 10,
+      include: {
+        category: true,
+        brand: true,
+        variants: {
+          where: { active: true },
+          orderBy: [{ score: 'desc' }, { createdAt: 'desc' }],
+          take: 1,
+        },
+      },
+    }).then((products) => {
+      const normalized = products.map((product) => ({
+        ...product,
+        effectiveImageUrls:
+          product.imageUrls.length > 0
+            ? product.imageUrls
+            : (product.variants[0]?.imageUrls ?? []),
+      }));
+
+      if (normalized.length > 0) {
+        return normalized;
+      }
+
+      return this.prisma.product.findMany({
+        orderBy: [{ createdAt: 'desc' }],
+        take: 10,
+        include: {
+          category: true,
+          brand: true,
+          variants: {
+            orderBy: [{ score: 'desc' }, { createdAt: 'desc' }],
+            take: 1,
+          },
+        },
+      }).then((fallbackProducts) =>
+        fallbackProducts.map((product) => ({
+          ...product,
+          effectiveImageUrls:
+            product.imageUrls.length > 0
+              ? product.imageUrls
+              : (product.variants[0]?.imageUrls ?? []),
+        })),
+      );
+    });
+  }
 
   findAllBackoffice() {
     return this.prisma.product.findMany({
@@ -54,6 +150,8 @@ export class ProductService {
         slug: data.slug,
         description: data.description,
         datasheetUrl: data.datasheetUrl,
+        imageUrls: data.imageUrls ?? [],
+        imagePublicIds: [],
         active: data.active ?? true,
       },
       include: {
@@ -63,8 +161,8 @@ export class ProductService {
     });
   }
 
-  findBySlug(slug: string) {
-    return this.prisma.product.findFirst({
+  async findBySlug(slug: string) {
+    const product = await this.prisma.product.findFirst({
       where: {
         slug,
         active: true,
@@ -82,6 +180,19 @@ export class ProductService {
         },
       },
     });
+
+    if (!product) {
+      return null;
+    }
+
+    return {
+      ...product,
+      variants: product.variants.map((variant) => ({
+        ...variant,
+        effectiveImageUrls:
+          variant.imageUrls.length > 0 ? variant.imageUrls : product.imageUrls,
+      })),
+    };
   }
 
   async update(id: string, data: UpdateProductDto) {
@@ -119,6 +230,7 @@ export class ProductService {
           ...(data.slug !== undefined ? { slug: data.slug } : {}),
           ...(data.description !== undefined ? { description: data.description } : {}),
           ...(data.datasheetUrl !== undefined ? { datasheetUrl: data.datasheetUrl } : {}),
+          ...(data.imageUrls !== undefined ? { imageUrls: data.imageUrls } : {}),
           ...(data.active !== undefined ? { active: data.active } : {}),
         },
         include: {
@@ -157,6 +269,69 @@ export class ProductService {
         where: { id },
         data: { active: false },
       });
+    });
+  }
+
+  async uploadImage(id: string, file: UploadedImageFile) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        slug: true,
+        imageUrls: true,
+        imagePublicIds: true,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const uploaded = await this.cloudinaryService.uploadBuffer({
+      buffer: file.buffer,
+      folder: 'products',
+      publicId: `${product.slug}-${Date.now()}`,
+    });
+
+    return this.prisma.product.update({
+      where: { id },
+      data: {
+        imageUrls: [...product.imageUrls, uploaded.secureUrl],
+        imagePublicIds: [...product.imagePublicIds, uploaded.publicId],
+      },
+    });
+  }
+
+  async removeImage(id: string, publicId: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        imageUrls: true,
+        imagePublicIds: true,
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    const index = product.imagePublicIds.findIndex((value) => value === publicId);
+    if (index === -1) {
+      throw new NotFoundException('Image not found');
+    }
+
+    await this.cloudinaryService.destroy(publicId);
+
+    const nextUrls = product.imageUrls.filter((_, idx) => idx !== index);
+    const nextPublicIds = product.imagePublicIds.filter((_, idx) => idx !== index);
+
+    return this.prisma.product.update({
+      where: { id },
+      data: {
+        imageUrls: nextUrls,
+        imagePublicIds: nextPublicIds,
+      },
     });
   }
 
