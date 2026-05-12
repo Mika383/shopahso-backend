@@ -4,13 +4,24 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateVariantDto } from './create-variant.dto';
 import { UpdateVariantDto } from './update-variant.dto';
 import { CategoryService } from '../category/category.service';
-import { ListVariantsQuery, ParsedAttributeFilter } from './list-variants.query';
+import {
+  ListVariantsQuery,
+  ParsedAttributeFilter,
+  VariantSort,
+} from './list-variants.query';
+import { CloudinaryService } from '../../media/cloudinary.service';
+
+type UploadedImageFile = {
+  buffer: Buffer;
+  mimetype: string;
+};
 
 @Injectable()
 export class VariantService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly categoryService: CategoryService,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   findAllBackoffice() {
@@ -26,11 +37,20 @@ export class VariantService {
           },
         },
       },
-    });
+    }).then((variants) =>
+      variants.map((variant) => ({
+        ...variant,
+        effectiveImageUrls:
+          variant.imageUrls.length > 0
+            ? variant.imageUrls
+            : variant.product.imageUrls,
+      })),
+    );
   }
 
   findOne(id: string) {
-    return this.prisma.productVariant.findUnique({
+    return this.prisma.productVariant
+      .findUnique({
       where: { id },
       include: {
         category: true,
@@ -47,7 +67,20 @@ export class VariantService {
           },
         },
       },
-    });
+      })
+      .then((variant) => {
+        if (!variant) {
+          return null;
+        }
+
+        return {
+          ...variant,
+          effectiveImageUrls:
+            variant.imageUrls.length > 0
+              ? variant.imageUrls
+              : variant.product.imageUrls,
+        };
+      });
   }
 
   async create(data: CreateVariantDto) {
@@ -68,6 +101,8 @@ export class VariantService {
       score: new Prisma.Decimal(data.score ?? 0),
       viewCount: data.viewCount ?? 0,
       orderCount: data.orderCount ?? 0,
+      imageUrls: data.imageUrls ?? [],
+      imagePublicIds: [],
       active: data.active ?? true,
     };
 
@@ -89,7 +124,7 @@ export class VariantService {
     const where = await this.buildPublicWhere(query);
     const take = this.resolveTake(query.limit);
 
-    return this.prisma.productVariant.findMany({
+    const variants = await this.prisma.productVariant.findMany({
       where,
       include: {
         category: true,
@@ -99,10 +134,54 @@ export class VariantService {
       orderBy: [{ score: 'desc' }, { createdAt: 'desc' }],
       take,
     });
+
+    return variants.map((variant) => ({
+      ...variant,
+      effectiveImageUrls:
+        variant.imageUrls.length > 0
+          ? variant.imageUrls
+          : variant.product.imageUrls,
+    }));
+  }
+
+  async search(query: ListVariantsQuery) {
+    const where = await this.buildPublicWhere(query);
+    const pagination = this.resolvePagination(query.page, query.limit);
+    const orderBy = this.resolveSearchOrderBy(query.sort);
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.productVariant.findMany({
+        where,
+        include: {
+          category: true,
+          brand: true,
+          product: true,
+        },
+        orderBy,
+        skip: pagination.skip,
+        take: pagination.limit,
+      }),
+      this.prisma.productVariant.count({ where }),
+    ]);
+
+    return {
+      items: items.map((variant) => ({
+        ...variant,
+        effectiveImageUrls:
+          variant.imageUrls.length > 0
+            ? variant.imageUrls
+            : variant.product.imageUrls,
+      })),
+      total,
+      page: pagination.page,
+      limit: pagination.limit,
+      totalPages: Math.max(1, Math.ceil(total / pagination.limit)),
+    };
   }
 
   findBySlug(slug: string) {
-    return this.prisma.productVariant.findFirst({
+    return this.prisma.productVariant
+      .findFirst({
       where: {
         slug,
         active: true,
@@ -122,7 +201,20 @@ export class VariantService {
           },
         },
       },
-    });
+      })
+      .then((variant) => {
+        if (!variant) {
+          return null;
+        }
+
+        return {
+          ...variant,
+          effectiveImageUrls:
+            variant.imageUrls.length > 0
+              ? variant.imageUrls
+              : variant.product.imageUrls,
+        };
+      });
   }
 
   async update(id: string, data: UpdateVariantDto) {
@@ -153,6 +245,7 @@ export class VariantService {
       ...(data.score !== undefined ? { score: new Prisma.Decimal(data.score) } : {}),
       ...(data.viewCount !== undefined ? { viewCount: data.viewCount } : {}),
       ...(data.orderCount !== undefined ? { orderCount: data.orderCount } : {}),
+      ...(data.imageUrls !== undefined ? { imageUrls: data.imageUrls } : {}),
       ...(data.active !== undefined ? { active: data.active } : {}),
     };
 
@@ -177,6 +270,79 @@ export class VariantService {
     return this.prisma.productVariant.update({
       where: { id },
       data: { active: false },
+    });
+  }
+
+  async uploadImage(id: string, file: UploadedImageFile) {
+    const variant = await this.prisma.productVariant.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        slug: true,
+        imageUrls: true,
+        imagePublicIds: true,
+      },
+    });
+
+    if (!variant) {
+      throw new NotFoundException('Variant not found');
+    }
+
+    const uploaded = await this.cloudinaryService.uploadBuffer({
+      buffer: file.buffer,
+      folder: 'variants',
+      publicId: `${variant.slug}-${Date.now()}`,
+    });
+
+    return this.prisma.productVariant.update({
+      where: { id },
+      data: {
+        imageUrls: [...variant.imageUrls, uploaded.secureUrl],
+        imagePublicIds: [...variant.imagePublicIds, uploaded.publicId],
+      },
+      include: {
+        category: true,
+        brand: true,
+        product: true,
+      },
+    });
+  }
+
+  async removeImage(id: string, publicId: string) {
+    const variant = await this.prisma.productVariant.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        imageUrls: true,
+        imagePublicIds: true,
+      },
+    });
+
+    if (!variant) {
+      throw new NotFoundException('Variant not found');
+    }
+
+    const index = variant.imagePublicIds.findIndex((value) => value === publicId);
+    if (index === -1) {
+      throw new NotFoundException('Image not found');
+    }
+
+    await this.cloudinaryService.destroy(publicId);
+
+    const nextUrls = variant.imageUrls.filter((_, idx) => idx !== index);
+    const nextPublicIds = variant.imagePublicIds.filter((_, idx) => idx !== index);
+
+    return this.prisma.productVariant.update({
+      where: { id },
+      data: {
+        imageUrls: nextUrls,
+        imagePublicIds: nextPublicIds,
+      },
+      include: {
+        category: true,
+        brand: true,
+        product: true,
+      },
     });
   }
 
@@ -240,6 +406,33 @@ export class VariantService {
             ? { lte: new Prisma.Decimal(query.priceMax) }
             : {}),
         },
+      });
+    }
+
+    const keyword = query.q?.trim();
+    if (keyword) {
+      andConditions.push({
+        OR: [
+          { name: { contains: keyword, mode: 'insensitive' } },
+          { slug: { contains: keyword, mode: 'insensitive' } },
+          { sku: { contains: keyword, mode: 'insensitive' } },
+          {
+            manufacturerPartNumber: {
+              contains: keyword,
+              mode: 'insensitive',
+            },
+          },
+          {
+            product: {
+              name: { contains: keyword, mode: 'insensitive' },
+            },
+          },
+          {
+            product: {
+              slug: { contains: keyword, mode: 'insensitive' },
+            },
+          },
+        ],
       });
     }
 
@@ -342,5 +535,37 @@ export class VariantService {
     }
 
     return Math.min(parsed, 100);
+  }
+
+  private resolveSearchOrderBy(
+    sort?: string,
+  ): Prisma.ProductVariantOrderByWithRelationInput[] {
+    const value = (sort ?? 'relevance') as VariantSort;
+
+    switch (value) {
+      case 'price_asc':
+        return [{ price: 'asc' }, { score: 'desc' }, { createdAt: 'desc' }];
+      case 'price_desc':
+        return [{ price: 'desc' }, { score: 'desc' }, { createdAt: 'desc' }];
+      case 'newest':
+        return [{ createdAt: 'desc' }];
+      case 'score':
+      case 'relevance':
+      default:
+        return [{ score: 'desc' }, { createdAt: 'desc' }];
+    }
+  }
+
+  private resolvePagination(page?: string, limit?: string) {
+    const resolvedLimit = this.resolveTake(limit);
+    const parsedPage = Number(page);
+    const resolvedPage =
+      Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+
+    return {
+      page: resolvedPage,
+      limit: resolvedLimit,
+      skip: (resolvedPage - 1) * resolvedLimit,
+    };
   }
 }

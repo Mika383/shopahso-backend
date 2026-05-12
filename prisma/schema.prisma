@@ -45,6 +45,7 @@ model Brand {
   name      String
   slug      String           @unique
   logoUrl   String?          @map("logo_url")
+  logoPublicId String?       @map("logo_public_id")
   active    Boolean          @default(true)
   createdAt DateTime         @default(now()) @map("created_at")
   updatedAt DateTime         @updatedAt @map("updated_at")
@@ -63,6 +64,8 @@ model Product {
   slug         String                       @unique
   description  String?
   datasheetUrl String?                      @map("datasheet_url")
+  imageUrls    String[]                     @default([]) @map("image_urls")
+  imagePublicIds String[]                   @default([]) @map("image_public_ids")
   active       Boolean                      @default(true)
   createdAt    DateTime                     @default(now()) @map("created_at")
   updatedAt    DateTime                     @updatedAt @map("updated_at")
@@ -93,6 +96,8 @@ model ProductVariant {
   viewCount              Int                     @default(0) @map("view_count")
   orderCount             Int                     @default(0) @map("order_count")
   specSnapshot           Json?                   @map("spec_snapshot")
+  imageUrls              String[]                @default([]) @map("image_urls")
+  imagePublicIds         String[]                @default([]) @map("image_public_ids")
   active                 Boolean                 @default(true)
   createdAt              DateTime                @default(now()) @map("created_at")
   updatedAt              DateTime                @updatedAt @map("updated_at")

@@ -11,6 +11,11 @@ export class VariantController {
     return this.variantService.findAll(this.parseListQuery(query));
   }
 
+  @Get('search')
+  search(@Query() query: Record<string, string | string[] | undefined>) {
+    return this.variantService.search(this.parseListQuery(query));
+  }
+
   @Get(':slug')
   async findBySlug(@Param('slug') slug: string) {
     const variant = await this.variantService.findBySlug(slug);
@@ -60,11 +65,14 @@ export class VariantController {
       });
 
     return {
+      q: readValue('q'),
       categoryId: readValue('categoryId'),
       brandId: readValue('brandId'),
       priceMin: readValue('priceMin'),
       priceMax: readValue('priceMax'),
+      page: readValue('page'),
       limit: readValue('limit'),
+      sort: readValue('sort'),
       attrFilters,
     };
   }

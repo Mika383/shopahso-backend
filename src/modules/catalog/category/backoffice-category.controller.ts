@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AppRole } from '@prisma/client';
@@ -31,8 +32,8 @@ export class BackofficeCategoryController {
   }
 
   @Get()
-  findAll() {
-    return this.categoryService.findAllBackoffice();
+  findAll(@Query('q') q?: string) {
+    return this.categoryService.findAllBackoffice(q);
   }
 
   @Get(':id')

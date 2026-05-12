@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   IsBoolean,
   IsOptional,
   IsString,
@@ -37,6 +38,18 @@ export class CreateProductDto {
     require_protocol: true,
   })
   datasheetUrl?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUrl(
+    {
+      require_tld: false,
+      require_protocol: true,
+    },
+    { each: true },
+  )
+  imageUrls?: string[];
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()

@@ -4,9 +4,10 @@ import { BrandController } from './brand.controller';
 import { BackofficeBrandController } from './backoffice-brand.controller';
 import { BrandService } from './brand.service';
 import { AuthModule } from '../../auth/auth.module';
+import { MediaModule } from '../../media/media.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, MediaModule],
   controllers: [BrandController, BackofficeBrandController],
   providers: [BrandService, PrismaService],
   exports: [BrandService],

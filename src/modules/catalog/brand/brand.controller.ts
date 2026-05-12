@@ -5,6 +5,11 @@ import { BrandService } from './brand.service';
 export class BrandController {
   constructor(private readonly brandService: BrandService) {}
 
+  @Get('featured')
+  findFeatured() {
+    return this.brandService.findFeatured();
+  }
+
   @Get()
   findAll() {
     return this.brandService.findAll();

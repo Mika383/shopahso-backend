@@ -17,8 +17,18 @@ export type CategoryTreeNode = {
 export class CategoryService {
   constructor(private readonly prisma: PrismaService) {}
 
-  findAllBackoffice() {
+  findAllBackoffice(q?: string) {
+    const keyword = q?.trim();
+
     return this.prisma.category.findMany({
+      where: keyword
+        ? {
+            OR: [
+              { name: { contains: keyword, mode: 'insensitive' } },
+              { slug: { contains: keyword, mode: 'insensitive' } },
+            ],
+          }
+        : undefined,
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
         parent: {
