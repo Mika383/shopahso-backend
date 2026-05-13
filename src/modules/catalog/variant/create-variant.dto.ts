@@ -9,6 +9,7 @@ import {
   IsString,
   IsUrl,
   IsUUID,
+  Max,
   Min,
 } from 'class-validator';
 
@@ -38,6 +39,34 @@ export class CreateVariantDto {
   @IsNumber()
   @Min(0)
   price: number;
+
+  @ApiPropertyOptional({
+    description: 'Gia nhap. Neu bo trong, he thong se dung gia ban.',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costPrice?: number;
+
+  @ApiPropertyOptional({ description: 'Gia sau khi giam gia' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  salePrice?: number;
+
+  @ApiPropertyOptional({ description: '% giam gia (0-100)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discountPercent?: number;
+
+  @ApiPropertyOptional({ description: '% thue (0-100)' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  taxPercent?: number;
 
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()

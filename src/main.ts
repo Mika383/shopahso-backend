@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ValidationPipe } from '@nestjs/common';
 
-function getAllowedOrigins() {
+function getAllowedOrigins(): string[] {
   const configuredOrigins = process.env.CORS_ORIGINS?.split(',')
     .map((origin) => origin.trim())
     .filter(Boolean);
@@ -27,7 +27,10 @@ async function bootstrap() {
   const allowedOrigins = getAllowedOrigins();
 
   app.enableCors({
-    origin: (origin, callback) => {
+    origin: (
+      origin: string | undefined,
+      callback: (error: Error | null, allow?: boolean) => void,
+    ) => {
       // Allow tools like Swagger, curl, mobile apps, and same-origin requests.
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
@@ -54,7 +57,8 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-    }));
+    }),
+  );
   await app.listen(process.env.PORT ?? 3001);
 }
-bootstrap();
+void bootstrap();

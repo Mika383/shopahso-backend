@@ -17,90 +17,96 @@ export class ProductService {
   ) {}
 
   findFeatured() {
-    return this.prisma.product.findMany({
-      where: { active: true },
-      orderBy: [{ variants: { _count: 'desc' } }, { createdAt: 'desc' }],
-      take: 10,
-      include: {
-        category: true,
-        brand: true,
-        variants: {
-          where: { active: true },
-          orderBy: [
-            { score: 'desc' },
-            { orderCount: 'desc' },
-            { viewCount: 'desc' },
-            { name: 'asc' },
-          ],
-          take: 1,
+    return this.prisma.product
+      .findMany({
+        where: { active: true, status: 'PUBLISHED' },
+        orderBy: [{ variants: { _count: 'desc' } }, { createdAt: 'desc' }],
+        take: 10,
+        include: {
+          category: true,
+          brand: true,
+          variants: {
+            where: { active: true },
+            orderBy: [
+              { score: 'desc' },
+              { orderCount: 'desc' },
+              { viewCount: 'desc' },
+              { name: 'asc' },
+            ],
+            take: 1,
+          },
         },
-      },
-    }).then((products) => {
-      const normalized = products.map((product) => ({
-        ...product,
-        featuredScore: product.variants[0]?.score ?? 0,
-        effectiveImageUrls:
-          product.imageUrls.length > 0
-            ? product.imageUrls
-            : (product.variants[0]?.imageUrls ?? []),
-      }));
+      })
+      .then((products) => {
+        const normalized = products.map((product) => ({
+          ...product,
+          featuredScore: product.variants[0]?.score ?? 0,
+          effectiveImageUrls:
+            product.imageUrls.length > 0
+              ? product.imageUrls
+              : (product.variants[0]?.imageUrls ?? []),
+        }));
 
-      if (normalized.length > 0) {
-        return normalized;
-      }
+        if (normalized.length > 0) {
+          return normalized;
+        }
 
-      return this.findNewest();
-    });
+        return this.findNewest();
+      });
   }
 
   findNewest() {
-    return this.prisma.product.findMany({
-      where: { active: true },
-      orderBy: [{ createdAt: 'desc' }],
-      take: 10,
-      include: {
-        category: true,
-        brand: true,
-        variants: {
-          where: { active: true },
-          orderBy: [{ score: 'desc' }, { createdAt: 'desc' }],
-          take: 1,
-        },
-      },
-    }).then((products) => {
-      const normalized = products.map((product) => ({
-        ...product,
-        effectiveImageUrls:
-          product.imageUrls.length > 0
-            ? product.imageUrls
-            : (product.variants[0]?.imageUrls ?? []),
-      }));
-
-      if (normalized.length > 0) {
-        return normalized;
-      }
-
-      return this.prisma.product.findMany({
+    return this.prisma.product
+      .findMany({
+        where: { active: true, status: 'PUBLISHED' },
         orderBy: [{ createdAt: 'desc' }],
         take: 10,
         include: {
           category: true,
           brand: true,
           variants: {
+            where: { active: true },
             orderBy: [{ score: 'desc' }, { createdAt: 'desc' }],
             take: 1,
           },
         },
-      }).then((fallbackProducts) =>
-        fallbackProducts.map((product) => ({
+      })
+      .then((products) => {
+        const normalized = products.map((product) => ({
           ...product,
           effectiveImageUrls:
             product.imageUrls.length > 0
               ? product.imageUrls
               : (product.variants[0]?.imageUrls ?? []),
-        })),
-      );
-    });
+        }));
+
+        if (normalized.length > 0) {
+          return normalized;
+        }
+
+        return this.prisma.product
+          .findMany({
+            orderBy: [{ createdAt: 'desc' }],
+            take: 10,
+            include: {
+              category: true,
+              brand: true,
+              variants: {
+                orderBy: [{ score: 'desc' }, { createdAt: 'desc' }],
+                take: 1,
+              },
+            },
+          })
+          .then((fallbackProducts) =>
+            fallbackProducts.map((product) => ({
+              ...product,
+              effectiveImageUrls:
+                product.imageUrls.length > 0
+                  ? product.imageUrls
+                  : (product.variants[0]?.imageUrls ?? []),
+            })),
+          );
+      });
   }
 
   findAllBackoffice() {
@@ -142,22 +148,53 @@ export class ProductService {
       await this.ensureBrandExists(data.brandId);
     }
 
-    return this.prisma.product.create({
-      data: {
-        categoryId: data.categoryId,
-        brandId: data.brandId,
-        name: data.name,
-        slug: data.slug,
-        description: data.description,
-        datasheetUrl: data.datasheetUrl,
-        imageUrls: data.imageUrls ?? [],
-        imagePublicIds: [],
-        active: data.active ?? true,
-      },
-      include: {
-        category: true,
-        brand: true,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          categoryId: data.categoryId,
+          brandId: data.brandId,
+          name: data.name,
+          slug: data.slug,
+          description: data.description,
+          datasheetUrl: data.datasheetUrl,
+          imageUrls: data.imageUrls ?? [],
+          imagePublicIds: [],
+          status: data.status ?? 'DRAFT',
+          active: data.active ?? true,
+        },
+        include: {
+          category: true,
+          brand: true,
+        },
+      });
+
+      const templates = await tx.categoryAttributeTemplate.findMany({
+        where: {
+          categoryId: data.categoryId,
+          active: true,
+        },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      });
+
+      if (templates.length > 0) {
+        await tx.productAttributeDefinition.createMany({
+          data: templates.map((template) => ({
+            productId: product.id,
+            categoryTemplateId: template.id,
+            name: template.name,
+            code: template.code,
+            dataType: template.dataType,
+            unit: template.unit,
+            isFilterable: template.isFilterable,
+            isSearchable: template.isSearchable,
+            isRequired: template.isRequired,
+            sortOrder: template.sortOrder,
+            active: template.active,
+          })),
+        });
+      }
+
+      return product;
     });
   }
 
@@ -166,6 +203,7 @@ export class ProductService {
       where: {
         slug,
         active: true,
+        status: 'PUBLISHED',
       },
       include: {
         category: true,
@@ -218,19 +256,29 @@ export class ProductService {
     }
 
     const nextCategoryId = data.categoryId ?? current.categoryId;
-    const nextBrandId = data.brandId !== undefined ? data.brandId : current.brandId;
+    const nextBrandId =
+      data.brandId !== undefined ? data.brandId : current.brandId;
 
     return this.prisma.$transaction(async (tx) => {
       const product = await tx.product.update({
         where: { id },
         data: {
-          ...(data.categoryId !== undefined ? { categoryId: data.categoryId } : {}),
+          ...(data.categoryId !== undefined
+            ? { categoryId: data.categoryId }
+            : {}),
           ...(data.brandId !== undefined ? { brandId: data.brandId } : {}),
           ...(data.name !== undefined ? { name: data.name } : {}),
           ...(data.slug !== undefined ? { slug: data.slug } : {}),
-          ...(data.description !== undefined ? { description: data.description } : {}),
-          ...(data.datasheetUrl !== undefined ? { datasheetUrl: data.datasheetUrl } : {}),
-          ...(data.imageUrls !== undefined ? { imageUrls: data.imageUrls } : {}),
+          ...(data.description !== undefined
+            ? { description: data.description }
+            : {}),
+          ...(data.datasheetUrl !== undefined
+            ? { datasheetUrl: data.datasheetUrl }
+            : {}),
+          ...(data.imageUrls !== undefined
+            ? { imageUrls: data.imageUrls }
+            : {}),
+          ...(data.status !== undefined ? { status: data.status } : {}),
           ...(data.active !== undefined ? { active: data.active } : {}),
         },
         include: {
@@ -316,7 +364,9 @@ export class ProductService {
       throw new NotFoundException('Product not found');
     }
 
-    const index = product.imagePublicIds.findIndex((value) => value === publicId);
+    const index = product.imagePublicIds.findIndex(
+      (value) => value === publicId,
+    );
     if (index === -1) {
       throw new NotFoundException('Image not found');
     }
@@ -324,7 +374,9 @@ export class ProductService {
     await this.cloudinaryService.destroy(publicId);
 
     const nextUrls = product.imageUrls.filter((_, idx) => idx !== index);
-    const nextPublicIds = product.imagePublicIds.filter((_, idx) => idx !== index);
+    const nextPublicIds = product.imagePublicIds.filter(
+      (_, idx) => idx !== index,
+    );
 
     return this.prisma.product.update({
       where: { id },

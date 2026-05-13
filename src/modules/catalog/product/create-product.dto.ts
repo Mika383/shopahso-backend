@@ -2,11 +2,15 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsArray,
   IsBoolean,
+  IsIn,
   IsOptional,
   IsString,
   IsUrl,
   IsUUID,
 } from 'class-validator';
+
+const PRODUCT_STATUSES = ['DRAFT', 'PUBLISHED'] as const;
+type ProductStatusValue = (typeof PRODUCT_STATUSES)[number];
 
 export class CreateProductDto {
   @ApiProperty()
@@ -50,6 +54,11 @@ export class CreateProductDto {
     { each: true },
   )
   imageUrls?: string[];
+
+  @ApiPropertyOptional({ enum: PRODUCT_STATUSES, default: 'DRAFT' })
+  @IsOptional()
+  @IsIn(PRODUCT_STATUSES)
+  status?: ProductStatusValue;
 
   @ApiPropertyOptional({ default: true })
   @IsOptional()

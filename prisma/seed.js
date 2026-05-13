@@ -244,6 +244,7 @@ async function main() {
       name: 'Bu long no thep ma kem',
       slug: 'bu-long-no-thep-ma-kem',
       description: 'Dong bu long no 3 canh bang thep ma kem cho ung dung treo va co dinh.',
+      status: 'PUBLISHED',
     },
   });
 
@@ -254,6 +255,7 @@ async function main() {
       name: 'Cam bien tiem can Omron E2E',
       slug: 'cam-bien-tiem-can-omron-e2e',
       description: 'Dong cam bien tiem can Omron E2E dung trong day chuyen tu dong hoa.',
+      status: 'PUBLISHED',
     },
   });
 
@@ -264,6 +266,7 @@ async function main() {
       name: 'Bac dan NSK 6000 series',
       slug: 'bac-dan-nsk-6000-series',
       description: 'Dong bac dan NSK cho truyen dong va quay toc do cao.',
+      status: 'PUBLISHED',
     },
   });
 
@@ -323,6 +326,7 @@ async function main() {
         name: 'Bu long no thep ma kem M8x80',
         slug: 'bu-long-no-thep-ma-kem-m8x80',
         price: new Prisma.Decimal('6800.00'),
+        costPrice: new Prisma.Decimal('6800.00'),
         stockQuantity: 120,
         unit: 'cai',
         score: new Prisma.Decimal('12.8500'),
@@ -346,6 +350,7 @@ async function main() {
         name: 'Bu long no thep ma kem M10x100',
         slug: 'bu-long-no-thep-ma-kem-m10x100',
         price: new Prisma.Decimal('9200.00'),
+        costPrice: new Prisma.Decimal('9200.00'),
         stockQuantity: 90,
         unit: 'cai',
         score: new Prisma.Decimal('14.4200'),
@@ -369,6 +374,7 @@ async function main() {
         name: 'Bu long no thep ma kem M12x120',
         slug: 'bu-long-no-thep-ma-kem-m12x120',
         price: new Prisma.Decimal('12800.00'),
+        costPrice: new Prisma.Decimal('12800.00'),
         stockQuantity: 64,
         unit: 'cai',
         score: new Prisma.Decimal('16.1100'),
@@ -395,6 +401,7 @@ async function main() {
         name: 'Cam bien tiem can Omron E2E-X5ME1',
         slug: 'cam-bien-tiem-can-omron-e2e-x5me1',
         price: new Prisma.Decimal('425000.00'),
+        costPrice: new Prisma.Decimal('425000.00'),
         stockQuantity: 16,
         unit: 'cai',
         score: new Prisma.Decimal('20.3700'),
@@ -418,6 +425,7 @@ async function main() {
         name: 'Cam bien tiem can Omron E2E-X10ME1',
         slug: 'cam-bien-tiem-can-omron-e2e-x10me1',
         price: new Prisma.Decimal('468000.00'),
+        costPrice: new Prisma.Decimal('468000.00'),
         stockQuantity: 12,
         unit: 'cai',
         score: new Prisma.Decimal('22.1500'),
@@ -444,6 +452,7 @@ async function main() {
         name: 'Bac dan NSK 6000ZZ',
         slug: 'bac-dan-nsk-6000zz',
         price: new Prisma.Decimal('38000.00'),
+        costPrice: new Prisma.Decimal('38000.00'),
         stockQuantity: 45,
         unit: 'cai',
         score: new Prisma.Decimal('11.9600'),
@@ -467,6 +476,7 @@ async function main() {
         name: 'Bac dan NSK 6001DDU',
         slug: 'bac-dan-nsk-6001ddu',
         price: new Prisma.Decimal('46000.00'),
+        costPrice: new Prisma.Decimal('46000.00'),
         stockQuantity: 38,
         unit: 'cai',
         score: new Prisma.Decimal('12.4400'),

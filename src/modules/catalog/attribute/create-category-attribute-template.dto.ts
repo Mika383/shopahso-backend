@@ -14,9 +14,10 @@ export class CreateCategoryAttributeTemplateDto {
   @IsString()
   name: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  code: string;
+  code?: string;
 
   @ApiProperty({ enum: AttributeDataType })
   @IsEnum(AttributeDataType)

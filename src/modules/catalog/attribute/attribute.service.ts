@@ -22,12 +22,17 @@ export class AttributeService {
     data: CreateCategoryAttributeTemplateDto,
   ) {
     await this.ensureCategoryExists(categoryId);
+    const resolvedCode = await this.resolveUniqueCategoryTemplateCode(
+      categoryId,
+      data.code,
+      data.name,
+    );
 
     return this.prisma.categoryAttributeTemplate.create({
       data: {
         categoryId,
         name: data.name,
-        code: data.code,
+        code: resolvedCode,
         dataType: data.dataType,
         unit: data.unit,
         isFilterable: data.isFilterable ?? false,
@@ -72,7 +77,9 @@ export class AttributeService {
         ...(data.isSearchable !== undefined
           ? { isSearchable: data.isSearchable }
           : {}),
-        ...(data.isRequired !== undefined ? { isRequired: data.isRequired } : {}),
+        ...(data.isRequired !== undefined
+          ? { isRequired: data.isRequired }
+          : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         ...(data.active !== undefined ? { active: data.active } : {}),
       },
@@ -120,12 +127,18 @@ export class AttributeService {
       };
     }
 
+    const resolvedCode = await this.resolveUniqueProductAttributeCode(
+      productId,
+      resolved.code,
+      resolved.name,
+    );
+
     return this.prisma.productAttributeDefinition.create({
       data: {
         productId,
         categoryTemplateId: data.categoryTemplateId,
         name: resolved.name,
-        code: resolved.code,
+        code: resolvedCode,
         dataType: resolved.dataType,
         unit: resolved.unit,
         isFilterable: resolved.isFilterable ?? false,
@@ -196,7 +209,9 @@ export class AttributeService {
         ...(data.isSearchable !== undefined
           ? { isSearchable: data.isSearchable }
           : {}),
-        ...(data.isRequired !== undefined ? { isRequired: data.isRequired } : {}),
+        ...(data.isRequired !== undefined
+          ? { isRequired: data.isRequired }
+          : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
         ...(data.active !== undefined ? { active: data.active } : {}),
       },
@@ -308,7 +323,9 @@ export class AttributeService {
     switch (dataType) {
       case AttributeDataType.TEXT:
         if (value.valueText === undefined) {
-          throw new BadRequestException('valueText is required for TEXT attribute');
+          throw new BadRequestException(
+            'valueText is required for TEXT attribute',
+          );
         }
         normalized.valueText = value.valueText;
         break;
@@ -330,7 +347,9 @@ export class AttributeService {
         break;
       case AttributeDataType.ENUM:
         if (value.valueEnum === undefined) {
-          throw new BadRequestException('valueEnum is required for ENUM attribute');
+          throw new BadRequestException(
+            'valueEnum is required for ENUM attribute',
+          );
         }
         normalized.valueEnum = value.valueEnum;
         break;
@@ -480,5 +499,63 @@ export class AttributeService {
     }
 
     return attribute;
+  }
+
+  private buildBaseCode(name: string) {
+    const raw = name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'd')
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+    return raw || 'attribute';
+  }
+
+  private async resolveUniqueCategoryTemplateCode(
+    categoryId: string,
+    code: string | undefined,
+    name: string,
+  ) {
+    const base = this.buildBaseCode(code?.trim() || name);
+    let candidate = base;
+    let suffix = 1;
+
+    while (
+      await this.prisma.categoryAttributeTemplate.findFirst({
+        where: { categoryId, code: candidate },
+        select: { id: true },
+      })
+    ) {
+      suffix += 1;
+      candidate = `${base}_${suffix}`;
+    }
+
+    return candidate;
+  }
+
+  private async resolveUniqueProductAttributeCode(
+    productId: string,
+    code: string | undefined,
+    name: string,
+  ) {
+    const base = this.buildBaseCode(code?.trim() || name);
+    let candidate = base;
+    let suffix = 1;
+
+    while (
+      await this.prisma.productAttributeDefinition.findFirst({
+        where: { productId, code: candidate },
+        select: { id: true },
+      })
+    ) {
+      suffix += 1;
+      candidate = `${base}_${suffix}`;
+    }
+
+    return candidate;
   }
 }

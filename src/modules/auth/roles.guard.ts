@@ -6,8 +6,13 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AppRole } from '@prisma/client';
+import type { Request } from 'express';
 import { ROLES_KEY } from './roles.decorator';
 import { JwtUserPayload } from './auth.types';
+
+type AuthenticatedRequest = Request & {
+  user?: JwtUserPayload;
+};
 
 @Injectable()
 export class RolesGuard implements CanActivate {
@@ -23,8 +28,8 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest();
-    const user = request.user as JwtUserPayload | undefined;
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const user = request.user;
 
     if (!user || !roles.includes(user.role)) {
       throw new ForbiddenException('Insufficient permissions');

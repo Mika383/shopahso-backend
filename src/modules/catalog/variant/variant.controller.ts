@@ -1,4 +1,10 @@
-import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { VariantService } from './variant.service';
 import { ListVariantsQuery } from './list-variants.query';
 
@@ -58,7 +64,8 @@ export class VariantController {
         return [
           {
             code,
-            operator: operator as ListVariantsQuery['attrFilters'][number]['operator'],
+            operator:
+              operator as ListVariantsQuery['attrFilters'][number]['operator'],
             value,
           },
         ];
