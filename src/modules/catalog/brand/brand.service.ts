@@ -181,9 +181,9 @@ export class BrandService {
   private findNewestActiveBrands() {
     return this.prisma.brand
       .findMany({
-      where: { active: true },
-      orderBy: [{ createdAt: 'desc' }],
-      take: 10,
+        where: { active: true },
+        orderBy: [{ createdAt: 'desc' }],
+        take: 10,
       })
       .then((brands) => {
         if (brands.length > 0) {

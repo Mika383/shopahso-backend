@@ -21,7 +21,6 @@ import { AccessTokenGuard } from '../../auth/access-token.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { memoryStorage } from 'multer';
 
 type UploadedImageFile = {
   buffer: Buffer;
@@ -64,11 +63,13 @@ export class BackofficeBrandController {
   @Post(':id/logo')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
-  uploadLogo(@Param('id') id: string, @UploadedFile() file?: UploadedImageFile) {
+  uploadLogo(
+    @Param('id') id: string,
+    @UploadedFile() file?: UploadedImageFile,
+  ) {
     if (!file) {
       throw new BadRequestException('File is required');
     }

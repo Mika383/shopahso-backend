@@ -69,7 +69,10 @@ export class CategoryService {
 
   async create(data: CreateCategoryDto) {
     if (data.parentId) {
-      await this.ensureCategoryExists(data.parentId, 'Parent category not found');
+      await this.ensureCategoryExists(
+        data.parentId,
+        'Parent category not found',
+      );
     }
 
     return this.prisma.category.create({
@@ -92,7 +95,10 @@ export class CategoryService {
         throw new NotFoundException('Category cannot be its own parent');
       }
 
-      await this.ensureCategoryExists(data.parentId, 'Parent category not found');
+      await this.ensureCategoryExists(
+        data.parentId,
+        'Parent category not found',
+      );
     }
 
     return this.prisma.category.update({
@@ -101,7 +107,9 @@ export class CategoryService {
         ...(data.parentId !== undefined ? { parentId: data.parentId } : {}),
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.slug !== undefined ? { slug: data.slug } : {}),
-        ...(data.description !== undefined ? { description: data.description } : {}),
+        ...(data.description !== undefined
+          ? { description: data.description }
+          : {}),
         ...(data.active !== undefined ? { active: data.active } : {}),
         ...(data.sortOrder !== undefined ? { sortOrder: data.sortOrder } : {}),
       },

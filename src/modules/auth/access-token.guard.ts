@@ -5,9 +5,15 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import type { Request } from 'express';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthConfigService } from './auth-config.service';
 import { JwtUserPayload } from './auth.types';
+
+type AuthenticatedRequest = Request & {
+  user?: JwtUserPayload;
+  accessToken?: string;
+};
 
 @Injectable()
 export class AccessTokenGuard implements CanActivate {
@@ -18,8 +24,8 @@ export class AccessTokenGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const token = this.extractBearerToken(request.headers.authorization);
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const token = this.extractBearerToken(request.header('authorization'));
 
     if (!token) {
       throw new UnauthorizedException('Missing access token');
@@ -61,7 +67,7 @@ export class AccessTokenGuard implements CanActivate {
     }
   }
 
-  private extractBearerToken(header?: string) {
+  private extractBearerToken(header?: string): string | null {
     if (!header) {
       return null;
     }

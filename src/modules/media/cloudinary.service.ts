@@ -50,9 +50,9 @@ export class CloudinaryService {
   }
 
   async destroy(publicId: string) {
-    const result = await cloudinary.uploader.destroy(publicId, {
+    const result = (await cloudinary.uploader.destroy(publicId, {
       resource_type: 'image',
-    });
+    })) as { result?: string };
 
     return result.result === 'ok' || result.result === 'not found';
   }
