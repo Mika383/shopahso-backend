@@ -15,6 +15,7 @@ export type VariantSort =
 
 export type ListVariantsQuery = {
   q?: string;
+  productId?: string;
   categoryId?: string;
   brandId?: string;
   priceMin?: string;
