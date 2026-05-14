@@ -73,6 +73,7 @@ export class VariantController {
 
     return {
       q: readValue('q'),
+      productId: readValue('productId'),
       categoryId: readValue('categoryId'),
       brandId: readValue('brandId'),
       priceMin: readValue('priceMin'),

@@ -1243,6 +1243,12 @@ export class VariantService {
       });
     }
 
+    if (query.productId) {
+      andConditions.push({
+        productId: query.productId,
+      });
+    }
+
     if (query.brandId) {
       andConditions.push({
         brandId: query.brandId,
