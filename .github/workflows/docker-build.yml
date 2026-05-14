@@ -34,6 +34,8 @@ jobs:
         with:
           context: .
           push: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.vars.outputs.owner_lc }}/shopahso_backend:latest
             ghcr.io/${{ steps.vars.outputs.owner_lc }}/shopahso_backend:${{ github.sha }}
